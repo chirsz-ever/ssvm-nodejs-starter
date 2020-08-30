@@ -1,0 +1,168 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>Recognize Number</title>
+    <style type="text/css">
+      canvas {
+        border: solid 1px #333;
+      }
+    </style>
+
+    <script src="https://cdn.bootcdn.net/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+
+    <script src="/public/base64.js"></script>
+
+    <!-- the canvas code is from http://www.williammalone.com/articles/create-html5-canvas-javascript-drawing-app/ -->
+    <script>
+      var canvas0;
+      var canvas0Width;
+      var canvas0Height;
+      var context;
+      var clickX = [];
+      var clickY = [];
+      var clickDrag = [];
+      var paint = false;
+
+      function claerCanvas0() {
+        context.clearRect(0, 0, canvas0Width, canvas0Height);
+      }
+
+      $(function() {
+        canvas0 = $('#canvas0');
+        canvas0Width = canvas0.width();
+        canvas0Height = canvas0.height();
+        context = canvas0[0].getContext('2d');
+
+        canvas0.mousedown(function(e) {
+          var mouseX = e.pageX - this.offsetLeft;
+          var mouseY = e.pageY - this.offsetTop;
+
+          paint = true;
+          addClick(e.pageX - this.offsetLeft, e.pageY - this.offsetTop);
+          redraw();
+        });
+
+        canvas0.mousemove(function(e) {
+          if (paint) {
+            addClick(e.pageX - this.offsetLeft, e.pageY - this.offsetTop, true);
+            redraw();
+          }
+        });
+
+        canvas0.mouseup(function(e) {
+          paint = false;
+        });
+
+        $('#button0').click(function() {
+          clickX = [];
+          clickY = [];
+          clickDrag = [];
+          claerCanvas0();
+        });
+
+        $('#button1').click(function() {
+          const imagedata = context.getImageData(0, 0, canvas0Width, canvas0Height);
+          const imagedata_784 = imagedata_to_784(imagedata);
+          show_small(imagedata_784);
+          const imagedata_784_base64 = bytesToBase64(imagedata_784);
+          $.post("/recognize",
+          {
+            data: imagedata_784_base64
+          },
+          function(data, status) {
+            $("#recognize-result").text("Recognition result: " + data);
+          });
+        })
+      });
+
+      function show_small(imagedata_784) {
+        let ctx = $('#canvas1')[0].getContext('2d');
+        for (var i = 0; i < 28; i++) {
+          for (var j = 0; j < 28; j++) {
+            const x = j * 10;
+            const y = i * 10;
+            const grey = imagedata_784[i*28+j].toString(16);
+            ctx.fillStyle = `#${grey}${grey}${grey}`
+            ctx.fillRect(x, y, 10, 10);
+          }
+        }
+      }
+
+      function addClick(x, y, dragging) {
+        clickX.push(x);
+        clickY.push(y);
+        clickDrag.push(dragging);
+      }
+
+      function redraw() {
+        claerCanvas0();
+
+        context.strokeStyle = "#0";
+        context.lineJoin = "round";
+        context.lineCap = "round";
+        context.lineWidth = canvas0Width * 0.075;
+
+        for (var i = 0; i < clickX.length; i++) {
+          context.beginPath();
+          if (clickDrag[i] && i) {
+            context.moveTo(clickX[i - 1], clickY[i - 1]);
+          } else {
+            context.moveTo(clickX[i] - 1, clickY[i]);
+          }
+          context.lineTo(clickX[i], clickY[i]);
+          context.closePath();
+          context.stroke();
+        }
+      }
+
+      function imagedata_to_784(imagedata) {
+        var result = new Uint8Array(784);
+        for (var i = 0; i < 28; i++) {
+          for (var j = 0; j < 28; j++) {
+            const x = j * 15;
+            const y = i * 15;
+            result[i*28+j] = imagedata_section_mean(imagedata, x, y, 15, 15);
+          }
+        }
+        return result;
+      }
+
+      function imagedata_section_mean(imagedata, x, y, w, h) {
+        let hits = 0;
+        const width = imagedata.width;
+        for (var i = y; i < y + h; i++) {
+          for (var j = x; j < x + w; j++) {
+            const base = (i*width+j)*4;
+            if (imagedata.data[base+3] > 0) {
+              hits += 1;
+            }
+          }
+        }
+        return hits/(w*h)*255;
+      }
+
+    </script>
+  </head>
+
+  <body>
+    <h1>Write a Number, then press "test"</h1>
+    <canvas id='canvas0' width=420 height=420>
+      Your broswer don't support HTML5 canvas tag
+    </canvas>
+    <canvas id='canvas1' width=280 height=280>
+      Your broswer don't support HTML5 canvas tag
+    </canvas>
+    <p id="recognize-result"> </p>
+    <br/>
+    <button id='button0'>
+      clear
+    </button>
+    <button id='button1'>
+      test
+    </button>
+    <br/>
+    
+  </body>
+</html>

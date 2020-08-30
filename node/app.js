@@ -1,19 +1,22 @@
-const { say } = require('../pkg/ssvm_nodejs_starter_lib.js');
+const express = require('express');
+const { recognize_number } = require('../pkg/recognize_number.js');
+const base64 = require("byte-base64");
 
-const http = require('http');
-const url = require('url');
-const hostname = '0.0.0.0';
-const port = 3000;
+const app = express();
+const port = 8080;
+app.use('/public', express.static(__dirname + "/public"));
+app.use(express.urlencoded({ extended: false }));
 
-const server = http.createServer((req, res) => {
-  const queryObject = url.parse(req.url,true).query;
-  if (!queryObject['name']) {
-    res.end(`Please use command curl http://${hostname}:${port}/?name=MyName \n`);
-  } else {
-    res.end(say(queryObject['name']) + '\n');
-  }
+app.get('/', (req, res) => res.sendFile(__dirname + "/public/" + "index.html"));;
+
+app.post('/recognize', function (req, res) {
+	console.log(`POST: ${req.body.data}`);
+	let imagedata = base64.base64ToBytes(req.body.data);
+	console.log(`imagedata.length: ${imagedata.length}`);
+	let recog = recognize_number(imagedata);
+	console.log(`recognize result: ${recog}`);
+	res.send(recog);
 });
 
-server.listen(port, hostname, () => {
-  console.log(`Server running at http://${hostname}:${port}/`);
-});
+app.listen(port, () => console.log(`Listening at http://localhost:${port}`))
+
